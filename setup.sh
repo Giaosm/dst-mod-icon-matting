@@ -62,6 +62,35 @@ parse_choice() {
   [ ${#picked[@]} -gt 0 ] && return 0 || return 1
 }
 
+# ---------- 环境预检: Python >= 3.10 (推荐 3.11 / 3.12) ----------
+# 按顺序探测: 系统里若同时装了几个版本, 优先用高版本
+PY=""
+for c in python3.13 python3.12 python3.11 python3.10 python3; do
+  if command -v "$c" >/dev/null 2>&1 && \
+     "$c" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)' >/dev/null 2>&1; then
+    PY="$c"; break
+  fi
+done
+if [ -z "$PY" ]; then
+  echo
+  echo "[错误] 本机没有可用的 Python 3.10+, 需要先安装 Python 再运行本脚本。"
+  echo
+  echo "  先看看现在的版本:  python3 --version"
+  echo "    - 提示 command not found        → 还没装 Python"
+  echo "    - 显示 3.9.x 或更低             → 版本太老, 需装新版本"
+  echo
+  echo "  安装方法 (任选其一):"
+  echo "    macOS 官网安装包 : 打开 https://www.python.org/downloads/"
+  echo "                        下载 3.12.x 的安装包, 双击一路「继续」装完即可"
+  echo "    macOS (Homebrew) : brew install python@3.12"
+  echo "    Linux Debian/Ubuntu : sudo apt update && sudo apt install python3 python3-venv"
+  echo "    Linux Fedora        : sudo dnf install python3"
+  echo
+  echo "  装好后重新运行:  ./setup.sh"
+  exit 1
+fi
+echo "[信息] 使用 Python: $("$PY" --version 2>&1)"
+
 # ---------- 主流程 ----------
 list_items
 echo
@@ -142,8 +171,8 @@ fi
 if [ ! -d ".venv" ]; then
   echo
   echo "创建虚拟环境 .venv ..."
-  if ! python3 -m venv .venv; then
-    echo "[错误] 创建 venv 失败, 请确认已安装 Python 3.11+ (python3 --version)"
+  if ! "$PY" -m venv .venv; then
+    echo "[错误] 创建 venv 失败, 请确认 $PY 完整可用 (运行 $PY --version 检查)"
     exit 1
   fi
 fi
