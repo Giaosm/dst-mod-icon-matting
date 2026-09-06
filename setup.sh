@@ -62,35 +62,6 @@ parse_choice() {
   [ ${#picked[@]} -gt 0 ] && return 0 || return 1
 }
 
-# ---------- 环境预检: Python >= 3.10 (推荐 3.11 / 3.12) ----------
-# 按顺序探测: 系统里若同时装了几个版本, 优先用高版本
-PY=""
-for c in python3.13 python3.12 python3.11 python3.10 python3; do
-  if command -v "$c" >/dev/null 2>&1 && \
-     "$c" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)' >/dev/null 2>&1; then
-    PY="$c"; break
-  fi
-done
-if [ -z "$PY" ]; then
-  echo
-  echo "[错误] 本机没有可用的 Python 3.10+, 需要先安装 Python 再运行本脚本。"
-  echo
-  echo "  先看看现在的版本:  python3 --version"
-  echo "    - 提示 command not found        → 还没装 Python"
-  echo "    - 显示 3.9.x 或更低             → 版本太老, 需装新版本"
-  echo
-  echo "  安装方法 (任选其一):"
-  echo "    macOS 官网安装包 : 打开 https://www.python.org/downloads/"
-  echo "                        下载 3.12.x 的安装包, 双击一路「继续」装完即可"
-  echo "    macOS (Homebrew) : brew install python@3.12"
-  echo "    Linux Debian/Ubuntu : sudo apt update && sudo apt install python3 python3-venv"
-  echo "    Linux Fedora        : sudo dnf install python3"
-  echo
-  echo "  装好后重新运行:  ./setup.sh"
-  exit 1
-fi
-echo "[信息] 使用 Python: $("$PY" --version 2>&1)"
-
 # ---------- 主流程 ----------
 list_items
 echo
@@ -165,6 +136,60 @@ if [ -n "$SETUP_DRY_RUN" ]; then
   echo "  pip install $PIP_ARGS"
   echo "  ./download_models.sh $CHOICE"
   exit 0
+fi
+
+# ---- 解释器准备: 有现成的就用, 没有再自动下载一个 Python 3.12 (不拦人) ----
+#   1) 项目已有 .venv        → 直接复用 (不管当初是用什么建的)
+#   2) 系统有 Python 3.10+   → 用它来创建 .venv
+#   3) 都没有                → 自动下载 Python 3.12 专供本项目 (需网络 ~50MB, 放用户目录, 不动系统)
+PY=""
+if [ -x ".venv/bin/python" ]; then
+  PY="./.venv/bin/python"
+  echo "[信息] 复用已有虚拟环境 .venv: $("$PY" --version 2>&1)"
+else
+  for c in python3.13 python3.12 python3.11 python3.10 python3; do
+    if command -v "$c" >/dev/null 2>&1 && \
+       "$c" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)' >/dev/null 2>&1; then
+      PY="$c"; break
+    fi
+  done
+  if [ -n "$PY" ]; then
+    echo "[信息] 使用系统 Python: $("$PY" --version 2>&1)"
+  else
+    echo
+    echo "[提示] 本机没有 Python 3.10+。不用手动安装——现在自动下载一个 Python 3.12"
+    echo "       专供本项目使用 (约 50MB, 需要网络; 放到你的用户目录, 不影响系统)。"
+    echo
+    # 3.1) 确保有 uv (Python 版本管理工具; 下载后放 ~/.local/bin)
+    if ! command -v uv >/dev/null 2>&1; then
+      echo "  [1/2] 下载 uv (~15MB) ..."
+      _uv_tmp="$(mktemp -d 2>/dev/null || echo /tmp)"
+      if ! curl -fsSL https://astral.sh/uv/install.sh -o "$_uv_tmp/uv-install.sh" 2>/dev/null; then
+        echo
+        echo "[错误] 自动下载失败 (无法联网下载 uv)。可手动执行下面这行装好 uv 再重跑 ./setup.sh:"
+        echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+        rm -rf "$_uv_tmp"; exit 1
+      fi
+      if ! sh "$_uv_tmp/uv-install.sh" >/dev/null 2>&1; then
+        echo
+        echo "[错误] uv 安装失败。请手动执行:  curl -LsSf https://astral.sh/uv/install.sh | sh"
+        rm -rf "$_uv_tmp"; exit 1
+      fi
+      rm -rf "$_uv_tmp"
+      export PATH="$HOME/.local/bin:$PATH"
+      command -v uv >/dev/null 2>&1 || {
+        echo "[错误] uv 装好后仍不可用。请手动安装后重跑 ./setup.sh"; exit 1
+      }
+    fi
+    # 3.2) 用 uv 下载 Python 3.12
+    echo "  [2/2] 下载 Python 3.12 ..."
+    uv python install 3.12 || {
+      echo "[错误] Python 下载失败。请检查网络后重跑 ./setup.sh (已下载部分会自动跳过)。"
+      exit 1
+    }
+    PY="$(uv python find 3.12)" || exit 1
+    echo "[信息] Python 3.12 已就绪: $("$PY" --version 2>&1)"
+  fi
 fi
 
 # ---- 创建 venv + 安装 ----
