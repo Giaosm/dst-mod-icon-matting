@@ -142,101 +142,69 @@ if [ -n "$SETUP_DRY_RUN" ]; then
   exit 0
 fi
 
-# ---- 解释器准备: 有现成的就用, 没有再自动装一个 Python 3.12 (不拦人) ----
-#   1) 项目已有 .venv            → 直接复用 (不管当初是用什么建的)
-#   2) 系统里找 Python 3.10+     → 用它来创建 .venv (候选含 Homebrew 目录, 不在 PATH 也能命中)
-#   3) 都没有                    → 自动安装 Python 3.12:
-#        macOS + 有 Homebrew     → brew install python@3.12   (macOS 惯例)
-#        其它 (Linux / 无 brew)  → 用 uv 下载到用户目录, 免 sudo 不动系统
+# ---- 解释器准备: 自用简化, Python 一律交给 Homebrew ----
+#   1) 项目已有完整 .venv        → 直接复用 (最快路径, 平时启动都走这)
+#   2) 找 Python 3.10+: 优先 Homebrew 目录, 其次 PATH 里的命令
+#   3) 都没有 → 直接用 Homebrew 装 python@3.12 (你有 brew 就用它, 不搞 uv 自举)
 PY=""
-
-# uv 兜底: 下载 Python 3.12 到用户目录 (~/.local/share/uv), 不影响系统
-install_python_via_uv() {
-  if ! command -v uv >/dev/null 2>&1; then
-    echo "  [1/2] 下载 uv (~15MB) ..."
-    _uv_tmp="$(mktemp -d 2>/dev/null || echo /tmp)"
-    if ! curl -fsSL https://astral.sh/uv/install.sh -o "$_uv_tmp/uv-install.sh" 2>/dev/null; then
-      echo
-      echo "[错误] 自动下载失败 (无法联网下载 uv)。装好 uv 后重跑 ./setup.sh:"
-      echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
-      rm -rf "$_uv_tmp"; exit 1
-    fi
-    if ! sh "$_uv_tmp/uv-install.sh" >/dev/null 2>&1; then
-      echo
-      echo "[错误] uv 安装失败。请手动执行:  curl -LsSf https://astral.sh/uv/install.sh | sh"
-      rm -rf "$_uv_tmp"; exit 1
-    fi
-    rm -rf "$_uv_tmp"
-    export PATH="$HOME/.local/bin:$PATH"
-    command -v uv >/dev/null 2>&1 || {
-      echo "[错误] uv 装好后仍不可用。请手动安装后重跑 ./setup.sh"; exit 1
-    }
-  fi
-  echo "  [2/2] 下载 Python 3.12 ..."
-  uv python install 3.12 || {
-    echo "[错误] Python 下载失败。请检查网络后重跑 ./setup.sh (已下载部分会自动跳过)。"
-    exit 1
-  }
-  PY="$(uv python find 3.12)" || exit 1
-}
-
 if [ -x ".venv/bin/python" ] && [ -x ".venv/bin/pip" ]; then
   PY="./.venv/bin/python"
   echo "[信息] 复用已有虚拟环境 .venv: $("$PY" --version 2>&1)"
 else
-  # 2) 候选: 常用命令名 + Homebrew 两个安装目录 (Apple Silicon 在 /opt/homebrew, Intel 在 /usr/local)
-  _cands="python3.13 python3.12 python3.11 python3.10 python3"
+  # 2) 候选: 先 Homebrew 两个目录, 再常用命令名 (都要 >=3.10)
+  _found=""
   for _bp in /opt/homebrew/bin /usr/local/bin; do
     for _c in python3.13 python3.12 python3.11 python3.10; do
-      [ -x "$_bp/$_c" ] && _cands="$_cands $_bp/$_c"
+      [ -x "$_bp/$_c" ] || continue
+      if "$_bp/$_c" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)' >/dev/null 2>&1; then
+        _found="$_bp/$_c"; break 2
+      fi
     done
   done
-  for _c in $_cands; do
-    if command -v "$_c" >/dev/null 2>&1 && \
-       "$_c" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)' >/dev/null 2>&1; then
-      PY="$_c"; break
-    fi
-  done
-  if [ -n "$PY" ]; then
-    echo "[信息] 使用 Python: $("$PY" --version 2>&1)  ($(command -v "$PY"))"
+  if [ -z "$_found" ]; then
+    for _c in python3.13 python3.12 python3.11 python3.10 python3; do
+      if command -v "$_c" >/dev/null 2>&1 && \
+         "$_c" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)' >/dev/null 2>&1; then
+        _found="$(command -v "$_c")"; break
+      fi
+    done
+  fi
+  if [ -n "$_found" ]; then
+    PY="$_found"
+    echo "[信息] 使用 Python: $("$PY" --version 2>&1)  ($_found)"
   else
-    # 3) 系统里确实没有 → 自动安装
+    # 3) 确实没有可用 Python → 直接 Homebrew 装 (自用最简路径)
+    echo
     case "$(uname -s)" in
       Darwin)
-        if command -v brew >/dev/null 2>&1; then
+        if ! command -v brew >/dev/null 2>&1; then
+          echo "[错误] 本机没有 Homebrew。先安装它再重跑 ./setup.sh:"
+          echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+          exit 1
+        fi
+        echo "[提示] 本机没有 Python 3.10+。直接用 Homebrew 安装 python@3.12 (需几分钟)..."
+        echo "  执行: brew install python@3.12"
+        if ! brew install python@3.12; then
           echo
-          echo "[提示] 本机没有 Python 3.10+。将用 Homebrew 安装 python@3.12 (macOS 惯例)..."
-          echo "  执行: brew install python@3.12    (需几分钟, 请稍候)"
-          if ! brew install python@3.12; then
-            echo
-            echo "[错误] brew 安装失败。可手动执行上面的命令, 装好后重跑 ./setup.sh"
-            exit 1
-          fi
-          if [ -x /opt/homebrew/bin/python3.12 ]; then PY="/opt/homebrew/bin/python3.12"
-          elif [ -x /usr/local/bin/python3.12 ]; then PY="/usr/local/bin/python3.12"
-          else PY="$(command -v python3.12 2>/dev/null)"; fi
-          if [ -z "$PY" ] || [ ! -x "$PY" ]; then
-            echo "[错误] 找不到 Homebrew 安装的 python3.12, 请手动确认后重跑 ./setup.sh"; exit 1
-          fi
-        else
-          echo
-          echo "[提示] 本机没有 Python 3.10+ 也没有 Homebrew。"
-          echo "       将自动用 uv 下载一个 Python 3.12 到用户目录 (不影响系统)。"
-          echo "       (想改用 Homebrew: 先装它再重跑 ——"
-          echo "        /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\")"
-          echo
-          install_python_via_uv
+          echo "[错误] brew 安装失败。可手动执行上面的命令, 装好后重跑 ./setup.sh"
+          exit 1
+        fi
+        for _p in /opt/homebrew/bin/python3.12 /usr/local/bin/python3.12; do
+          [ -x "$_p" ] && { PY="$_p"; break; }
+        done
+        [ -z "$PY" ] && PY="$(command -v python3.12 2>/dev/null)"
+        if [ -z "$PY" ] || [ ! -x "$PY" ]; then
+          echo "[错误] 找不到 Homebrew 装的 python3.12, 请手动确认后重跑 ./setup.sh"; exit 1
         fi
         ;;
       *)
-        echo
-        echo "[提示] 本机没有 Python 3.10+。将自动用 uv 下载一个 Python 3.12"
-        echo "       到用户目录 (免 sudo, 不影响系统)。"
-        echo
-        install_python_via_uv
+        echo "[错误] 没有 Python 3.10+。请用系统包管理器装好 python3 + python3-venv 再重跑:"
+        echo "  Debian/Ubuntu : sudo apt install python3 python3-venv"
+        echo "  Fedora        : sudo dnf install python3"
+        exit 1
         ;;
     esac
-    echo "[信息] Python 3.12 已就绪: $("$PY" --version 2>&1)"
+    echo "[信息] Python 已就绪: $("$PY" --version 2>&1)"
   fi
 fi
 
