@@ -12,6 +12,10 @@
 # ============================================================================
 cd "$(dirname "$0")"
 
+# 临时文件 (记录 venv 创建失败时的详细报错), 脚本退出时清理
+TMP_ERR="$(mktemp 2>/dev/null || echo "/tmp/setup-err-$$.log")"
+trap 'rm -f "$TMP_ERR"' EXIT
+
 # ---------- 模型元数据: 编号|显示名|依赖组(空格分隔) ----------
 # 依赖组对应: core(必装) onnx torch birefnet feynobg inspyrenet
 ITEMS=(
@@ -176,7 +180,7 @@ install_python_via_uv() {
   PY="$(uv python find 3.12)" || exit 1
 }
 
-if [ -x ".venv/bin/python" ]; then
+if [ -x ".venv/bin/python" ] && [ -x ".venv/bin/pip" ]; then
   PY="./.venv/bin/python"
   echo "[信息] 复用已有虚拟环境 .venv: $("$PY" --version 2>&1)"
 else
@@ -237,12 +241,32 @@ else
 fi
 
 # ---- 创建 venv + 安装 ----
-if [ ! -d ".venv" ]; then
+# 判断 .venv 是否可用: 目录存在 且 有 python 且 有 pip (缺 pip 说明上次创建被中断)
+if [ ! -d ".venv" ] || [ ! -x ".venv/bin/python" ] || [ ! -x ".venv/bin/pip" ]; then
+  if [ -d ".venv" ]; then
+    echo
+    echo "[信息] 检测到不完整的 .venv (缺少 pip, 上次创建可能被中断), 将删除重建 ..."
+    rm -rf .venv
+  fi
   echo
   echo "创建虚拟环境 .venv ..."
-  if ! "$PY" -m venv .venv; then
-    echo "[错误] 创建 venv 失败, 请确认 $PY 完整可用 (运行 $PY --version 检查)"
-    exit 1
+  # 优先用标准方式创建; 失败时若本机有 uv, 改用 uv venv 兜底
+  # (uv 下载的 Python 带 PEP 668 "externally-managed" 标记, python -m venv 装 pip 会被拦截)
+  if ! "$PY" -m venv .venv 2>"$TMP_ERR"; then
+    if command -v uv >/dev/null 2>&1; then
+      echo "[信息] 标准 venv 创建被系统策略拦截 (该 Python 由 uv 管理), 改用 uv venv ..."
+      rm -rf .venv
+      if uv venv --python "$PY" --seed .venv; then
+        :
+      else
+        echo "[错误] uv venv 创建也失败。可手动执行:  uv venv --python $PY --seed .venv"
+        exit 1
+      fi
+    else
+      echo "[错误] 创建 venv 失败, 请确认 $PY 完整可用 (运行 $PY --version 检查)"
+      echo "      报错内容: $(cat "$TMP_ERR" 2>/dev/null | head -3)"
+      exit 1
+    fi
   fi
 fi
 
