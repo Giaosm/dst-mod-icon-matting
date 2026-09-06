@@ -1,0 +1,28 @@
+# ===== macOS =====
+.DS_Store
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.venv/
+
+# ===== 工具内部工作记录(不入库) =====
+.workbuddy/
+
+# ===== 运行产物 =====
+output/*
+!output/examples/
+*.log
+
+# ===== 模型权重 =====
+# 权重每个 >100MB, 超出 GitHub 单文件 100MB 上限, 不随代码入库。
+# 用 ./download_models.sh 按需下载(交互选择/断点续传)。
+*.onnx
+*.safetensors
+*.pth
+
+# 本机专用旧下载脚本(硬编码本机路径/代理), 已由 download_models.sh 取代
+models/resume_downloads.sh
+
+# 魔搭参考文档(非运行必需)
+models/RMBG-2.0/_ref/

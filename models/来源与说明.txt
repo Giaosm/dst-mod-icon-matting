@@ -1,0 +1,45 @@
+AI 抠图 / 背景移除 开源模型下载
+下载日期: 2026-09-07
+下载目录: ~/Downloads/models
+
+本目录收集了当前主流、推荐关注的开源抠图模型权重，均为可免费商用/使用的开源模型。
+以下每个模型的官方主页里都有使用示例与引用要求，集成前请查阅。
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ 1. BiRefNet  (通用高精度，发丝级边缘，当前开源事实标准)                      │
+│    文件: BiRefNet/model.safetensors  (~885 MB)                              │
+│    来源: huggingface.co/ZhengPeng7/BiRefNet  (HF 官方仓库, 非 gated)        │
+│    协议: MIT（可商用）                                                       │
+│    架构: 双边参考网络（CAAI AIR 2024）。配套有 lite 轻量版(ZhengPeng7/      │
+│          BiRefNet_T)与 matting/portrait 等变体，可按需另取。                │
+├────────────────────────────────────────────────────────────────────────────┤
+│ 2. FeyNoBg  (2026-07 最新热点，八项基准四项 SOTA，适配 4K/8K)               │
+│    文件: FeyNoBg/model.safetensors  (~1.05 GB, transformers 格式)           │
+│    来源: huggingface.co/feyninc/FeyNobg                                     │
+│    协议: Apache-2.0（可商用）；底层基于 BiRefNet，引用需标注                 │
+│    用法: transformers AutoModel.from_pretrained("feyninc/FeyNobg")          │
+├────────────────────────────────────────────────────────────────────────────┤
+│ 3. RMBG-2.0  (BRIA 出品，综合均衡型，你之前用过 RMBG-1.4 的升级版)          │
+│    文件: RMBG-2.0/model.onnx  (fp32 ONNX ~1.02 GB, CPU/GPU 皆可)            │
+│    来源: modelscope.cn/models/briaai/RMBG-2.0（魔搭镜像）                   │
+│    说明: HF 官方仓库(briaai/RMBG-2.0)需先同意 BRIA 许可方可下载，            │
+│          本文件取自魔搭公开镜像。BRIA 许可允许非商业/部分商用使用，          │
+│          商用前请到 HF 页面阅读条款。另有 fp16(513MB)/int8(366MB)等变体。    │
+├────────────────────────────────────────────────────────────────────────────┤
+│ 4. BEN2  (Background Erase Network 2，保留关联前景，电商友好)              │
+│    文件: BEN2/BEN2_Base.onnx  (~213 MB)                                     │
+│    来源: huggingface.co/PramaLLC/BEN2（官方另有权重 safetensors 363MB/      │
+│          pth 1.06GB，需要 PyTorch 版可再取）                                │
+│    协议: MIT（可商用）                                                       │
+├────────────────────────────────────────────────────────────────────────────┤
+│ 5. InSPyReNet  (transparent-background 库内核，轻快，低资源首选)            │
+│    文件: InSPyReNet/ckpt_base.pth  (Swin-Base 骨干版, ~700 MB)              │
+│    来源: github.com/plemeri/transparent-background 的 GitHub Release        │
+│    协议: MIT（可商用）                                                       │
+│    备注: 轻量 fast 版(ResNet50)同名 release 可下 ckpt_fast.pth              │
+└────────────────────────────────────────────────────────────────────────────┘
+
+下载方式备忘（本机有代理 127.0.0.1:7897）:
+  curl -L -x http://127.0.0.1:7897 -C - -o <文件> <URL>
+国内直连 HF 不稳定时，可使用 hf-mirror.com 镜像把 huggingface.co 替换掉；
+RMBG-2.0 走魔搭直连即可。
