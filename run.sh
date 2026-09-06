@@ -7,26 +7,11 @@
 cd "$(dirname "$0")"
 
 if [ ! -d ".venv" ]; then
-  echo "[首次运行] 创建虚拟环境并安装依赖 (需联网, 约几分钟)..."
-  python3 -m venv .venv
-
-  # 仅此步骤可能需要网络: 若本机有常见本地代理则自动加速下载, 否则直连
-  PIP_PROXY=""
-  for port in 7897 1087 1080 8888 7890; do
-    if nc -z -G 1 127.0.0.1 "$port" 2>/dev/null; then
-      PIP_PROXY="--proxy http://127.0.0.1:$port"
-      echo "[信息] 检测到本地代理 127.0.0.1:$port, 用于加速依赖下载"
-      break
-    fi
-  done
-
-  ./.venv/bin/pip install -U pip $PIP_PROXY
-  ./.venv/bin/pip install -r requirements.txt $PIP_PROXY || {
-    echo "[错误] 依赖安装失败。若网络受限可尝试:"
-    echo "  export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple"
-    echo "  或去掉下方 run.sh 中代理相关逻辑后重试。"
-    exit 1
-  }
+  echo "[首次运行] 尚未配置运行环境 (虚拟环境/依赖)。"
+  echo "          现在进入引导: 选择你要用的模型 → 只安装它需要的依赖 → 下载对应权重。"
+  echo "          之后每次启动不再需要网络。"
+  echo
+  exec ./setup.sh
 fi
 
 # 模型权重检查: 5 个权重都很大(>100MB, GitHub 无法入库), 需按需下载。

@@ -1,0 +1,9 @@
+# BiRefNet 专用: 其自定义架构代码 (birefnet.py) import 这些库
+transformers>=4.44
+safetensors>=0.4
+huggingface_hub>=0.24
+timm>=1.0
+einops>=0.8
+kornia>=0.7
+requests>=2.31
+filelock>=3.13

@@ -1,4 +1,14 @@
 # AI 抠图工具依赖 (Python 3.13)
+# 本文件 = 「全量安装」入口(所有模型 + UI)。但多数用户只需其中一部分:
+#   建议用 ./setup.sh 按需安装(先选模型, 只装它需要的依赖, 体积小得多)。
+# 依赖按模型分组:
+#   requirements-core.txt      必装: gradio/pillow/numpy
+#   requirements-onnx.txt      RMBG-2.0 / BEN2  (onnxruntime)
+#   requirements-torch.txt     BiRefNet / FeyNoBg / InSPyReNet (torch, ~2GB)
+#   requirements-birefnet.txt  BiRefNet 专用 (transformers/timm/einops/kornia)
+#   FeyNoBg 另需:    pip install "nobg>=0.2.5"
+#   InSPyReNet 另需: pip install transparent-background
+
 # Web 界面
 gradio>=5.0
 # ONNX 推理 (RMBG-2.0 / BEN2)
@@ -6,7 +16,7 @@ onnxruntime>=1.19
 # PyTorch 推理 (BiRefNet / FeyNoBg / InSPyReNet)，macOS 自动带 MPS 支持
 torch>=2.5
 torchvision>=0.20
-# transformers 格式 (FeyNoBg)
+# transformers 格式 (FeyNoBg / BiRefNet)
 transformers>=4.44
 safetensors>=0.4
 huggingface_hub>=0.24
@@ -19,8 +29,3 @@ pillow>=10.0
 numpy>=1.26
 requests>=2.31
 filelock>=3.13
-
-# ---- 可选模型依赖 (安装失败不影响其它引擎) ----
-# FeyNoBg: pip install "nobg>=0.2.5"
-# InSPyReNet: pip install transparent-background
-

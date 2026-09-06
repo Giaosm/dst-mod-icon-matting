@@ -1,0 +1,2 @@
+# ONNX 推理依赖: RMBG-2.0 / BEN2 专用 (轻量, 无需 torch)
+onnxruntime>=1.19

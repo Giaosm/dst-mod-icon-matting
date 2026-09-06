@@ -1,0 +1,4 @@
+# PyTorch 推理依赖: BiRefNet / FeyNoBg / InSPyReNet 共用
+# 注意: 体积最大(约 2GB), 仅在需要 torch 系模型时安装
+torch>=2.5
+torchvision>=0.20

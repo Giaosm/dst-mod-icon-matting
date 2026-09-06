@@ -7,17 +7,27 @@
 
 ## 快速开始
 
+首次使用（需联网一次）：
 ```bash
-./run.sh          # 首次会自动建 .venv 装依赖 + 引导下载模型权重; 之后直接启动
+./run.sh
 ```
+会进入**按需安装引导** `setup.sh`：
 
-浏览器打开 <http://127.0.0.1:7860>。
+1. 列出 5 个模型，选你要用的（多选如 `1,3`，`a` 全装，`q` 退出）；
+2. 只安装所选模型**需要的那部分依赖**——只选 RMBG-2.0 / BEN2 就只需轻量 onnxruntime，**不用装 torch（约 2GB）**；
+3. 自动下载对应模型权重（已存在的自动跳过，支持断点续传）；
+4. 装完直接启动，浏览器打开 <http://127.0.0.1:7860>。
+
+之后每次 `./run.sh` 都是纯本地直接启动，**断网可用**。
+
+> **想补装其它模型**？随时运行 `./setup.sh`（或 `./setup.sh 3` 直接指定编号），
+> 只会补装新模型需要的依赖与权重，已装好的自动跳过。
 
 > **模型权重不随仓库分发**：每个权重 >100MB，超出 GitHub 单文件 100MB 上限，
-> 需先运行 `./download_models.sh` 按需下载（或直接 `./run.sh` 自动引导），见下文「模型下载」。
+> 需现场下载（上面的引导即在做这件事）。只想补下权重也可用 `./download_models.sh`，见下文。
 
 > **关于「代理」**：终端里出现的 `检测到本地代理` 只发生在**首次安装依赖**时
-> （`pip` 从 PyPI 下载包走本地代理加速，见 `run.sh`）。依赖装完后工具**纯本地离线运行**——
+> （`pip` 从 PyPI 下载包走本地代理加速，见 `setup.sh`）。依赖装完后工具**纯本地离线运行**——
 > 代码强制 `HF_HUB_OFFLINE` 且只读 `models/` 目录，不上传图片、不调用云端、**断网可用**
 > （已用封禁网络连接的方式实测 BiRefNet / FeyNoBg / RMBG-2.0 均可正常抠图）。
 
@@ -33,23 +43,27 @@
 
 > Apple Silicon (M 系列) 会自动启用 MPS 加速；其余机器回退 CPU。
 
-## 模型下载（首次必做）
+## 按需安装原理（依赖是怎么省下来的）
 
-`models/` 目录里提交的是各模型的**架构/配置文件**（很小），权重因体积问题不入库。
-首次使用请先按需下载权重——支持**交互式多选 + 断点续传**（中途断开重跑即续，随时可补下其它模型）：
+依赖按模型拆分，`setup.sh` 根据你的选择只装对应组（`./setup.sh` 可加 `SETUP_DRY_RUN=1` 预览要装什么）：
+
+| 依赖组 | 包含 | 何时需要 |
+| --- | --- | --- |
+| core (必装) | gradio / pillow / numpy | 所有模型 + Web 界面 |
+| onnx | onnxruntime | 选了 RMBG-2.0 / BEN2 |
+| torch | torch + torchvision (~2GB) | 选了 BiRefNet / FeyNoBg / InSPyReNet |
+| birefnet | transformers / timm / einops / kornia | 选了 BiRefNet |
+| (feynobg) | `nobg>=0.2.5` | 选了 FeyNoBg |
+| (inspyrenet) | `transparent-background` | 选了 InSPyReNet |
+
+缺依赖时**界面会给出对应提示**（`⚠️ 缺少…`），不影响其它引擎使用。
+
+## 只想补下权重 / 各模型大小
 
 ```bash
 ./download_models.sh          # 交互选择: 输入 1,3,5 可多选 / a 全下 / q 退出
 ./download_models.sh 1,3      # 或直接带编号参数（空格或逗号分隔）
 ```
-
-| # | 模型 | 大小 | 推荐场景 |
-| --- | --- | --- | --- |
-| 1 | RMBG-2.0 | ~977 MB | 均衡全能（默认选择） |
-| 2 | BEN2 | ~213 MB | 电商、保留关联前景 |
-| 3 | BiRefNet | ~425 MB | 发丝级高精度 |
-| 4 | FeyNoBg | ~900 MB | 最新 SOTA、4K/8K |
-| 5 | InSPyReNet | ~350 MB | 轻快、低内存 |
 
 > 只下 1~2 个就能用：常用 `RMBG-2.0` 或轻快的 `InSPyReNet`，要细节再加 `BiRefNet`/`FeyNoBg`。
 > 国内网络下载慢时：脚本会自动尝试 hf-mirror.com 镜像与本机代理；也可 `export HF_ENDPOINT=https://hf-mirror.com` 提速。
@@ -57,31 +71,33 @@
 
 ## 首次使用
 
-1. 按上文下载至少 1 个模型权重。
-2. 部分引擎需要额外 pip 包（`nobg` / `transparent-background`），缺包时**界面会给出对应提示**，不影响其它引擎：
-   ```bash
-   # BiRefNet 系 (torch 已含在 requirements.txt)
-   # FeyNoBg 需要:
-   ./.venv/bin/pip install --proxy http://127.0.0.1:7897 "nobg>=0.2.5"
-   # InSPyReNet 需要:
-   ./.venv/bin/pip install --proxy http://127.0.0.1:7897 transparent-background
-   ```
-3. 启动后页面顶部会显示每个引擎的可用状态。
+最省事的方式是 `./run.sh` → 选模型 → `setup.sh` 自动完成"装依赖 + 下权重"两步，
+无需手动操作。若你是老用户已装好全量依赖，或想手动安装全部依赖，可跳过 `setup.sh`：
+
+```bash
+python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt   # 全量
+./download_models.sh      # 再手动下需要的权重
+```
 
 ## 目录结构
 
 ```
 .
 ├── app.py                # Gradio Web 界面入口
-├── run.sh                # 一键启动 (首次自动装依赖/引导下载权重)
-├── download_models.sh    # 交互式按需下载模型权重 (多选/断点续传)
-├── requirements.txt
+├── run.sh                # 一键启动 (无环境时自动进入 setup.sh 引导)
+├── setup.sh              # 按需安装器: 选模型 → 只装所需依赖 → 下载对应权重
+├── download_models.sh    # 单独补下模型权重 (多选/断点续传)
+├── requirements.txt      # 全量依赖入口 (老方式/手动全装用)
+├── requirements-core.txt # 依赖分组: 必装
+├── requirements-onnx.txt # 依赖分组: RMBG-2.0 / BEN2
+├── requirements-torch.txt# 依赖分组: PyTorch 系 (~2GB)
+├── requirements-birefnet.txt  # 依赖分组: BiRefNet 专用
 ├── engines/
 │   ├── base.py           # 引擎基类 + 注册表
 │   ├── common.py         # 图像/设备工具
 │   ├── onnx_engines.py   # RMBG-2.0 / BEN2 (onnxruntime)
 │   └── torch_engines.py  # BiRefNet / FeyNoBg / InSPyReNet (PyTorch)
-├── models/               # 模型架构文件(入库) + 权重(用 download_models.sh 下载)
+├── models/               # 模型架构文件(入库) + 权重(用 setup.sh 下载)
 └── output/               # 抠图结果
 ```
 
