@@ -13,7 +13,7 @@
 | 项目 | 要求 |
 | --- | --- |
 | 操作系统 | macOS 或 Linux（一键脚本基于 bash；Windows 见下方 FAQ） |
-| Python | **无需提前安装**：系统有 3.10+ 就直接用；没有的话引导会自动下载一个 Python 3.12 专供本项目（放用户目录，不影响系统） |
+| Python | **无需提前安装**：系统有 3.10+ 就直接用；没有的话引导会自动装一个 Python 3.12——macOS 优先用 **Homebrew**（`brew install python@3.12`），没有 Homebrew 或 Linux 则自动下载到用户目录，均不影响系统 |
 | 内存 | 建议 8 GB 以上（个别模型瞬时峰值约 8 GB） |
 | 磁盘 | 程序约 0.5 GB；模型权重每个 0.2 ~ 1 GB，按需下载 |
 | 网络 | **仅首次安装时需要**：自动下载 Python（若无）、装依赖、下权重；全部就绪后可完全断网使用 |
@@ -85,9 +85,10 @@ chmod +x run.sh setup.sh download_models.sh
 
 引导会自动做三件事，**全程无需操作**：
 
-1. **准备 Python**：系统里已有 Python 3.10+ 就直接用；
-   没有的话，**自动下载一个 Python 3.12 专供本项目**（约 50 MB，放进你用户目录
-   `~/.local/share/uv/`，不影响系统）——这就是为什么你不需要自己装 Python；
+1. **准备 Python**：系统里已有 Python 3.10+ 就直接用（Homebrew 装的也能找到）；
+   没有的话会自动装一个 Python 3.12——**macOS 上优先用 Homebrew 安装**
+   （`brew install python@3.12`，符合 macOS 惯例）；没有 Homebrew（或 Linux）时才
+   自动下载到用户目录 `~/.local/share/uv/`。全程不需要你自己装 Python；
 2. **安装依赖**：自动创建虚拟环境 `.venv`，只装所选模型需要的依赖（已装过的秒跳过）；
 3. **下载模型权重**（约 0.2 ~ 1 GB）：有进度显示。中途断网或取消没关系，
    **重新运行会自动断点续传**，不会从头再来。
@@ -136,8 +137,9 @@ http://127.0.0.1:7860
 多半是 ZIP 下载导致脚本丢了执行权限。执行 `chmod +x run.sh setup.sh download_models.sh` 后重试。
 
 **Q: 我没有 Python / 版本太低，怎么办？**
-不用担心：引导发现系统没有 Python 3.10+ 时，会自动下载一个 **Python 3.12** 专供本项目使用
-（放在你的用户目录 `~/.local/share/uv/`，不影响系统），全程无需手动安装（见部署第 6 步）。
+不用担心：引导发现系统没有 Python 3.10+ 时，会自动装一个 **Python 3.12**——
+**macOS 优先用 Homebrew**（`brew install python@3.12`，符合 macOS 惯例）；没有 Homebrew 或
+Linux 则自动下载到用户目录 `~/.local/share/uv/`。全程无需手动安装（见部署第 6 步）。
 
 **Q: 下载权重很慢 / 中途失败？**
 重新运行 `./setup.sh`（或 `./download_models.sh`）即可**断点续传**。国内网络可先执行：
@@ -148,8 +150,13 @@ export HF_ENDPOINT=https://hf-mirror.com
 
 再重跑，会自动走 hf-mirror 镜像，通常快很多。
 
-**Q: 自动下载 Python 那一步很慢 / 失败？**
-国内网络可先设置 GitHub 加速镜像再重跑 `./setup.sh`（换个前缀不生效就换一个）：
+**Q: Homebrew 安装 Python 那一步很慢 / 失败？**
+Homebrew 需联网下载安装包，等几分钟属正常。失败可手动执行 `brew install python@3.12`
+看具体报错，装好后重跑 `./setup.sh` 即可。
+
+**Q: 自动下载 Python（uv 方式）那一步很慢 / 失败？**
+只在没有 Homebrew（或 Linux）时才走这条路径。国内网络可先设置 GitHub 加速镜像再重跑
+`./setup.sh`（换个前缀不生效就换一个）：
 
 ```bash
 export UV_PYTHON_INSTALL_MIRROR=https://ghfast.top/https://github.com/astral-sh/python-build-standalone/releases/download
